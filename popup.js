@@ -3,6 +3,7 @@ const DEFAULTS = {
   keepTurns: 40,
   stepTurns: 20,
   showOverlay: true,
+  language: 'auto',
 };
 
 const STORAGE_META_KEY = 'settingsStorageMode';
@@ -12,16 +13,37 @@ const KEEP_TURNS_MAX = 400;
 const STEP_TURNS_MIN = 5;
 const STEP_TURNS_MAX = 200;
 
+const { createTranslator, normalizeLanguage } = globalThis.ChatSlimmerI18n;
+
 const elements = {
+  heroSubtitle: document.getElementById('heroSubtitle'),
+  enabledLabel: document.getElementById('enabledLabel'),
   enabled: document.getElementById('enabled'),
+  keepTurnsLabel: document.getElementById('keepTurnsLabel'),
   keepTurnsRange: document.getElementById('keepTurns'),
   keepTurnsNumber: document.getElementById('keepTurnsNumber'),
   keepTurnsValue: document.getElementById('keepTurnsValue'),
+  keepTurnsHint: document.getElementById('keepTurnsHint'),
+  stepTurnsLabel: document.getElementById('stepTurnsLabel'),
   stepTurnsRange: document.getElementById('stepTurns'),
   stepTurnsNumber: document.getElementById('stepTurnsNumber'),
   stepTurnsValue: document.getElementById('stepTurnsValue'),
+  stepTurnsHint: document.getElementById('stepTurnsHint'),
+  languageLabel: document.getElementById('languageLabel'),
+  language: document.getElementById('language'),
+  languageHint: document.getElementById('languageHint'),
+  languageOptionAuto: document.getElementById('languageOptionAuto'),
+  languageOptionKo: document.getElementById('languageOptionKo'),
+  languageOptionEn: document.getElementById('languageOptionEn'),
+  showOverlayLabel: document.getElementById('showOverlayLabel'),
   showOverlay: document.getElementById('showOverlay'),
+  statsTitle: document.getElementById('statsTitle'),
   refreshStatus: document.getElementById('refreshStatus'),
+  modeTerm: document.getElementById('modeTerm'),
+  totalTurnsTerm: document.getElementById('totalTurnsTerm'),
+  renderedTurnsTerm: document.getElementById('renderedTurnsTerm'),
+  hiddenTurnsTerm: document.getElementById('hiddenTurnsTerm'),
+  reductionTerm: document.getElementById('reductionTerm'),
   loadOlder: document.getElementById('loadOlder'),
   showLatest: document.getElementById('showLatest'),
   showAll: document.getElementById('showAll'),
@@ -35,10 +57,12 @@ const elements = {
 
 let activeTab = null;
 let persistTimer = 0;
+let currentSettings = { ...DEFAULTS };
 
 bootstrap().catch((error) => {
   console.error('Popup bootstrap failed:', error);
-  renderDisconnected('초기화 중 오류가 발생했습니다.');
+  applySettingsToUI(currentSettings);
+  renderDisconnected(getTranslator().t('status_initializing_error'));
 });
 
 async function bootstrap() {
@@ -55,6 +79,10 @@ function bindEvents() {
   });
 
   elements.showOverlay.addEventListener('change', () => {
+    handleSettingsChanged(true);
+  });
+
+  elements.language.addEventListener('change', () => {
     handleSettingsChanged(true);
   });
 
@@ -98,7 +126,7 @@ function bindTurnControl({ rangeEl, numberEl, valueEl, min, max, fallback }) {
     const value = clampNumber(rawValue, min, max, fallback);
     rangeEl.value = String(value);
     numberEl.value = String(value);
-    valueEl.value = `${value}턴`;
+    valueEl.value = formatTurnCount(value);
   };
 
   rangeEl.addEventListener('input', () => {
@@ -155,20 +183,20 @@ async function previewSettings(next) {
   }
 
   if (!isSupportedChatgptTab(activeTab)) {
-    renderDisconnected('ChatGPT 대화 탭에서만 동작합니다.');
+    renderDisconnected(getTranslator().t('status_chatgpt_only'));
   }
 }
 
 async function refreshStatus() {
   activeTab = await getActiveTab();
   if (!isSupportedChatgptTab(activeTab)) {
-    renderDisconnected('ChatGPT 대화 탭에서만 동작합니다.');
+    renderDisconnected(getTranslator().t('status_chatgpt_only'));
     return;
   }
 
   const status = await sendAction({ type: 'GET_STATUS' }).catch(() => null);
   if (!status) {
-    renderDisconnected('이 탭에서 아직 내용을 감지하지 못했습니다. 페이지를 한 번 새로고침해 보세요.');
+    renderDisconnected(getTranslator().t('status_not_detected_yet'));
     return;
   }
 
@@ -191,22 +219,26 @@ async function sendAction(message) {
 
 function renderStatus(status) {
   if (!status) {
-    renderDisconnected('상태 정보를 불러오지 못했습니다.');
+    renderDisconnected(getTranslator().t('status_load_failed'));
     return;
   }
 
+  const t = getTranslator();
   const reduction = status.renderedTurns > 0
     ? `${(status.totalTurns / status.renderedTurns).toFixed(1)}x`
     : '-';
 
-  elements.statusMode.textContent = mapMode(status);
+  elements.statusMode.textContent = t.t(`mode_${getModeKey(status)}`);
   elements.totalTurns.textContent = String(status.totalTurns ?? '-');
   elements.renderedTurns.textContent = String(status.renderedTurns ?? '-');
   elements.hiddenTurns.textContent = String(status.hiddenTurns ?? '-');
   elements.reduction.textContent = reduction;
   elements.statusHint.textContent = status.containerFound
-    ? `이 브라우저에서는 최근 ${status.keepTurns}개 턴 유지, 필요할 때 ${status.stepTurns}개씩 더 펼치도록 설정했습니다.`
-    : '이 페이지에서는 아직 채팅 턴을 찾지 못했습니다.';
+    ? t.t('status_hint_connected', {
+        keepTurns: formatTurnCount(status.keepTurns),
+        stepTurns: formatTurnCount(status.stepTurns),
+      })
+    : t.t('status_hint_not_found');
 
   const controlsEnabled = Boolean(status.containerFound);
   elements.loadOlder.disabled = !controlsEnabled || status.hiddenTurns === 0;
@@ -215,7 +247,7 @@ function renderStatus(status) {
 }
 
 function renderDisconnected(message) {
-  elements.statusMode.textContent = '대기 중';
+  elements.statusMode.textContent = getTranslator().t('status_waiting');
   elements.totalTurns.textContent = '-';
   elements.renderedTurns.textContent = '-';
   elements.hiddenTurns.textContent = '-';
@@ -226,32 +258,45 @@ function renderDisconnected(message) {
   elements.showAll.disabled = true;
 }
 
-function mapMode(status) {
-  if (!status.enabled) {
-    return '비활성화';
-  }
-  if (!status.containerFound) {
-    return '감지 중';
-  }
-  if (status.showAll) {
-    return '전체 표시';
-  }
-  if (status.expanded) {
-    return '확장 표시';
-  }
-  return '자동 경량화';
-}
-
 function applySettingsToUI(settings) {
-  const normalized = normalizeSettings(settings);
-  elements.enabled.checked = normalized.enabled;
-  elements.keepTurnsRange.value = String(normalized.keepTurns);
-  elements.keepTurnsNumber.value = String(normalized.keepTurns);
-  elements.keepTurnsValue.value = `${normalized.keepTurns}턴`;
-  elements.stepTurnsRange.value = String(normalized.stepTurns);
-  elements.stepTurnsNumber.value = String(normalized.stepTurns);
-  elements.stepTurnsValue.value = `${normalized.stepTurns}턴`;
-  elements.showOverlay.checked = normalized.showOverlay;
+  currentSettings = normalizeSettings(settings);
+  const t = getTranslator();
+
+  document.documentElement.lang = t.resolved;
+  document.title = 'Long Chat Slimmer';
+
+  elements.heroSubtitle.textContent = t.t('popup_subtitle');
+  elements.enabledLabel.textContent = t.t('setting_enabled');
+  elements.keepTurnsLabel.textContent = t.t('setting_keep_turns');
+  elements.keepTurnsHint.textContent = t.t('setting_keep_turns_hint');
+  elements.stepTurnsLabel.textContent = t.t('setting_step_turns');
+  elements.stepTurnsHint.textContent = t.t('setting_step_turns_hint');
+  elements.languageLabel.textContent = t.t('setting_language');
+  elements.languageHint.textContent = t.t('setting_language_hint');
+  elements.languageOptionAuto.textContent = t.t('language_auto');
+  elements.languageOptionKo.textContent = t.t('language_ko');
+  elements.languageOptionEn.textContent = t.t('language_en');
+  elements.showOverlayLabel.textContent = t.t('setting_show_overlay');
+  elements.statsTitle.textContent = t.t('stats_current_tab');
+  elements.refreshStatus.textContent = t.t('action_refresh');
+  elements.modeTerm.textContent = t.t('stat_mode');
+  elements.totalTurnsTerm.textContent = t.t('stat_total_turns');
+  elements.renderedTurnsTerm.textContent = t.t('stat_rendered_turns');
+  elements.hiddenTurnsTerm.textContent = t.t('stat_hidden_turns');
+  elements.reductionTerm.textContent = t.t('stat_reduction');
+  elements.loadOlder.textContent = t.t('action_load_older');
+  elements.showLatest.textContent = t.t('action_show_latest');
+  elements.showAll.textContent = t.t('action_show_all');
+
+  elements.enabled.checked = currentSettings.enabled;
+  elements.keepTurnsRange.value = String(currentSettings.keepTurns);
+  elements.keepTurnsNumber.value = String(currentSettings.keepTurns);
+  elements.keepTurnsValue.value = formatTurnCount(currentSettings.keepTurns);
+  elements.stepTurnsRange.value = String(currentSettings.stepTurns);
+  elements.stepTurnsNumber.value = String(currentSettings.stepTurns);
+  elements.stepTurnsValue.value = formatTurnCount(currentSettings.stepTurns);
+  elements.language.value = currentSettings.language;
+  elements.showOverlay.checked = currentSettings.showOverlay;
 }
 
 function readSettingsFromUI() {
@@ -259,6 +304,7 @@ function readSettingsFromUI() {
     enabled: elements.enabled.checked,
     keepTurns: elements.keepTurnsNumber.value,
     stepTurns: elements.stepTurnsNumber.value,
+    language: elements.language.value,
     showOverlay: elements.showOverlay.checked,
   });
 }
@@ -293,7 +339,32 @@ function normalizeSettings(value) {
     keepTurns: clampNumber(value.keepTurns, KEEP_TURNS_MIN, KEEP_TURNS_MAX, DEFAULTS.keepTurns),
     stepTurns: clampNumber(value.stepTurns, STEP_TURNS_MIN, STEP_TURNS_MAX, DEFAULTS.stepTurns),
     showOverlay: typeof value.showOverlay === 'boolean' ? value.showOverlay : DEFAULTS.showOverlay,
+    language: normalizeLanguage(value.language),
   };
+}
+
+function formatTurnCount(count) {
+  return getTranslator().t('turn_count', { count });
+}
+
+function getTranslator() {
+  return createTranslator(currentSettings.language);
+}
+
+function getModeKey(status) {
+  if (!status.enabled) {
+    return 'disabled';
+  }
+  if (!status.containerFound) {
+    return 'detecting';
+  }
+  if (status.showAll) {
+    return 'show_all';
+  }
+  if (status.expanded) {
+    return 'expanded';
+  }
+  return 'auto';
 }
 
 function clampNumber(value, min, max, fallback) {

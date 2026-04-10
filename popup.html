@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Chat Slimmer</title>
+    <title>Long Chat Slimmer</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
@@ -11,10 +11,10 @@
       <section class="card hero">
         <div>
           <h1>Long Chat Slimmer</h1>
-          <p>긴 ChatGPT 대화에서 오래된 턴을 DOM에서 내려 렉을 줄입니다.</p>
+          <p id="heroSubtitle">긴 ChatGPT 대화에서 오래된 턴을 DOM에서 내려 렉을 줄입니다.</p>
         </div>
         <label class="switch-row">
-          <span>활성화</span>
+          <span id="enabledLabel">활성화</span>
           <input id="enabled" type="checkbox" />
         </label>
       </section>
@@ -22,58 +22,68 @@
       <section class="card controls">
         <label class="range-field">
           <div class="field-head">
-            <span>항상 화면에 남길 턴 수</span>
+            <span id="keepTurnsLabel">항상 화면에 남길 턴 수</span>
             <output id="keepTurnsValue" for="keepTurns keepTurnsNumber">40턴</output>
           </div>
           <input id="keepTurns" type="range" min="5" max="400" step="5" />
           <div class="field-foot">
             <input id="keepTurnsNumber" type="number" min="5" max="400" step="5" />
-            <p class="field-hint">이 브라우저에만 저장되고 현재 탭에 바로 반영됩니다.</p>
+            <p id="keepTurnsHint" class="field-hint">이 브라우저에만 저장되고 현재 탭에 바로 반영됩니다.</p>
           </div>
         </label>
 
         <label class="range-field">
           <div class="field-head">
-            <span>"이전 더 보기" 배치 크기</span>
+            <span id="stepTurnsLabel">"이전 더 보기" 배치 크기</span>
             <output id="stepTurnsValue" for="stepTurns stepTurnsNumber">20턴</output>
           </div>
           <input id="stepTurns" type="range" min="5" max="200" step="5" />
           <div class="field-foot">
             <input id="stepTurnsNumber" type="number" min="5" max="200" step="5" />
-            <p class="field-hint">오래된 턴을 다시 펼칠 때 한 번에 늘어나는 개수입니다.</p>
+            <p id="stepTurnsHint" class="field-hint">오래된 턴을 다시 펼칠 때 한 번에 늘어나는 개수입니다.</p>
           </div>
+        </label>
+
+        <label class="select-field">
+          <span id="languageLabel">언어</span>
+          <select id="language">
+            <option id="languageOptionAuto" value="auto">자동 (브라우저)</option>
+            <option id="languageOptionKo" value="ko">한국어</option>
+            <option id="languageOptionEn" value="en">English</option>
+          </select>
+          <p id="languageHint" class="field-hint">팝업과 페이지 안 조작 UI에 바로 적용됩니다.</p>
         </label>
 
         <label class="check-row">
           <input id="showOverlay" type="checkbox" />
-          <span>페이지 오른쪽 아래 상태 패널 표시</span>
+          <span id="showOverlayLabel">페이지 오른쪽 아래 상태 패널 표시</span>
         </label>
       </section>
 
       <section class="card stats">
         <div class="stats-head">
-          <h2>현재 탭 상태</h2>
+          <h2 id="statsTitle">현재 탭 상태</h2>
           <button id="refreshStatus" type="button">새로고침</button>
         </div>
         <dl>
           <div>
-            <dt>상태</dt>
+            <dt id="modeTerm">상태</dt>
             <dd id="statusMode">감지 중…</dd>
           </div>
           <div>
-            <dt>전체 턴</dt>
+            <dt id="totalTurnsTerm">전체 턴</dt>
             <dd id="totalTurns">-</dd>
           </div>
           <div>
-            <dt>표시 중</dt>
+            <dt id="renderedTurnsTerm">표시 중</dt>
             <dd id="renderedTurns">-</dd>
           </div>
           <div>
-            <dt>숨김</dt>
+            <dt id="hiddenTurnsTerm">숨김</dt>
             <dd id="hiddenTurns">-</dd>
           </div>
           <div>
-            <dt>DOM 경량화</dt>
+            <dt id="reductionTerm">DOM 경량화</dt>
             <dd id="reduction">-</dd>
           </div>
         </dl>
@@ -89,6 +99,7 @@
       </section>
     </main>
 
+    <script src="i18n.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>
