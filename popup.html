@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chat Slimmer</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="card hero">
+        <div>
+          <h1>Long Chat Slimmer</h1>
+          <p>긴 ChatGPT 대화에서 오래된 턴을 DOM에서 내려 렉을 줄입니다.</p>
+        </div>
+        <label class="switch-row">
+          <span>활성화</span>
+          <input id="enabled" type="checkbox" />
+        </label>
+      </section>
+
+      <section class="card controls">
+        <label class="range-field">
+          <div class="field-head">
+            <span>항상 화면에 남길 턴 수</span>
+            <output id="keepTurnsValue" for="keepTurns keepTurnsNumber">40턴</output>
+          </div>
+          <input id="keepTurns" type="range" min="5" max="400" step="5" />
+          <div class="field-foot">
+            <input id="keepTurnsNumber" type="number" min="5" max="400" step="5" />
+            <p class="field-hint">이 브라우저에만 저장되고 현재 탭에 바로 반영됩니다.</p>
+          </div>
+        </label>
+
+        <label class="range-field">
+          <div class="field-head">
+            <span>"이전 더 보기" 배치 크기</span>
+            <output id="stepTurnsValue" for="stepTurns stepTurnsNumber">20턴</output>
+          </div>
+          <input id="stepTurns" type="range" min="5" max="200" step="5" />
+          <div class="field-foot">
+            <input id="stepTurnsNumber" type="number" min="5" max="200" step="5" />
+            <p class="field-hint">오래된 턴을 다시 펼칠 때 한 번에 늘어나는 개수입니다.</p>
+          </div>
+        </label>
+
+        <label class="check-row">
+          <input id="showOverlay" type="checkbox" />
+          <span>페이지 오른쪽 아래 상태 패널 표시</span>
+        </label>
+      </section>
+
+      <section class="card stats">
+        <div class="stats-head">
+          <h2>현재 탭 상태</h2>
+          <button id="refreshStatus" type="button">새로고침</button>
+        </div>
+        <dl>
+          <div>
+            <dt>상태</dt>
+            <dd id="statusMode">감지 중…</dd>
+          </div>
+          <div>
+            <dt>전체 턴</dt>
+            <dd id="totalTurns">-</dd>
+          </div>
+          <div>
+            <dt>표시 중</dt>
+            <dd id="renderedTurns">-</dd>
+          </div>
+          <div>
+            <dt>숨김</dt>
+            <dd id="hiddenTurns">-</dd>
+          </div>
+          <div>
+            <dt>DOM 경량화</dt>
+            <dd id="reduction">-</dd>
+          </div>
+        </dl>
+        <p id="statusHint" class="hint">ChatGPT 탭을 열면 상태가 여기에 표시됩니다.</p>
+      </section>
+
+      <section class="card actions">
+        <div class="button-grid">
+          <button id="loadOlder" type="button">이전 더 보기</button>
+          <button id="showLatest" type="button">최신만 보기</button>
+          <button id="showAll" type="button">전체 보기</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
