@@ -4,8 +4,6 @@
     keepTurns: 40,
     stepTurns: 20,
     showOverlay: true,
-    language: 'auto',
-    overlayPosition: null,
   };
 
   const STORAGE_META_KEY = 'settingsStorageMode';
@@ -14,9 +12,6 @@
   const KEEP_TURNS_MAX = 400;
   const STEP_TURNS_MIN = 5;
   const STEP_TURNS_MAX = 200;
-  const OVERLAY_MARGIN = 12;
-  const DRAG_THRESHOLD = 4;
-  const { createTranslator, normalizeLanguage } = globalThis.ChatSlimmerI18n;
 
   const state = {
     settings: { ...DEFAULT_SETTINGS },
@@ -31,15 +26,12 @@
     overlayShadow: null,
     overlayEls: {},
     observer: null,
-    observerPauseDepth: 0,
     scheduled: false,
     disposed: false,
     persistTimer: 0,
     expandBy: 0,
     showAll: false,
     overlayOpen: false,
-    overlayDrag: null,
-    suppressNextToggleClick: false,
   };
 
   const PLACEHOLDER_ATTR = 'data-chat-slimmer-placeholder';
@@ -93,27 +85,12 @@
 
     window.addEventListener('popstate', handlePossibleNavigation, true);
     window.addEventListener('hashchange', handlePossibleNavigation, true);
-    window.addEventListener('resize', handleViewportResize, true);
-    window.addEventListener('pointermove', handleOverlayPointerMove, true);
-    window.addEventListener('pointerup', finishOverlayDrag, true);
-    window.addEventListener('pointercancel', finishOverlayDrag, true);
   }
 
   function bindObservers() {
     state.observer = new MutationObserver(() => {
-      if (state.observerPauseDepth > 0) {
-        return;
-      }
       scheduleRefresh();
     });
-
-    observeDocument();
-  }
-
-  function observeDocument() {
-    if (!state.observer || state.disposed) {
-      return;
-    }
 
     state.observer.observe(document.documentElement, {
       childList: true,
@@ -121,33 +98,8 @@
     });
   }
 
-  function withObserverPaused(work) {
-    if (!state.observer) {
-      return work();
-    }
-
-    const shouldReconnect = state.observerPauseDepth === 0;
-    state.observerPauseDepth += 1;
-    if (shouldReconnect) {
-      state.observer.disconnect();
-    }
-
-    try {
-      return work();
-    } finally {
-      state.observerPauseDepth -= 1;
-      if (shouldReconnect && state.observerPauseDepth === 0) {
-        observeDocument();
-      }
-    }
-  }
-
   function handlePossibleNavigation() {
     scheduleRefresh();
-  }
-
-  function handleViewportResize() {
-    applyOverlayPosition(false);
   }
 
   function scheduleRefresh() {
@@ -377,37 +329,35 @@
       : Math.min(totalTurns, Math.max(1, state.settings.keepTurns + state.expandBy));
     const targetHidden = Math.max(0, totalTurns - targetVisible);
 
-    withObserverPaused(() => {
-      const snapshot = captureScroll();
+    const snapshot = captureScroll();
 
-      if (state.hiddenTurns.length < targetHidden) {
-        const hideCount = targetHidden - state.hiddenTurns.length;
-        const removed = state.visibleTurns.splice(0, hideCount);
-        state.hiddenTurns.push(...removed);
-        for (const node of removed) {
-          if (node.parentElement === state.container) {
-            state.container.removeChild(node);
-          }
+    if (state.hiddenTurns.length < targetHidden) {
+      const hideCount = targetHidden - state.hiddenTurns.length;
+      const removed = state.visibleTurns.splice(0, hideCount);
+      state.hiddenTurns.push(...removed);
+      for (const node of removed) {
+        if (node.parentElement === state.container) {
+          state.container.removeChild(node);
         }
-      } else if (state.hiddenTurns.length > targetHidden) {
-        const restoreCount = state.hiddenTurns.length - targetHidden;
-        const restored = state.hiddenTurns.slice(-restoreCount);
-        state.hiddenTurns = state.hiddenTurns.slice(0, -restoreCount);
-        const insertionPoint = state.visibleTurns[0] || state.placeholder || null;
-        for (const node of restored) {
-          state.container.insertBefore(node, insertionPoint);
-        }
-        state.visibleTurns = restored.concat(state.visibleTurns);
       }
-
-      if (state.hiddenTurns.length > 0) {
-        ensurePlaceholder();
-      } else {
-        removePlaceholder();
+    } else if (state.hiddenTurns.length > targetHidden) {
+      const restoreCount = state.hiddenTurns.length - targetHidden;
+      const restored = state.hiddenTurns.slice(-restoreCount);
+      state.hiddenTurns = state.hiddenTurns.slice(0, -restoreCount);
+      const insertionPoint = state.visibleTurns[0] || state.placeholder || null;
+      for (const node of restored) {
+        state.container.insertBefore(node, insertionPoint);
       }
+      state.visibleTurns = restored.concat(state.visibleTurns);
+    }
 
-      restoreScroll(snapshot);
-    });
+    if (state.hiddenTurns.length > 0) {
+      ensurePlaceholder();
+    } else {
+      removePlaceholder();
+    }
+
+    restoreScroll(snapshot);
   }
 
   function ensurePlaceholder() {
@@ -416,47 +366,40 @@
       return;
     }
 
-    withObserverPaused(() => {
-      if (!state.placeholder) {
-        state.placeholder = document.createElement('div');
-        state.placeholder.setAttribute(PLACEHOLDER_ATTR, '1');
-        state.placeholder.className = 'chat-slimmer-placeholder';
-        state.placeholder.addEventListener('click', onPlaceholderClick);
-      }
-
-      const firstVisible = state.visibleTurns[0] || null;
-      if (state.placeholder.parentElement !== state.container) {
-        state.container.insertBefore(state.placeholder, firstVisible);
-      } else if (firstVisible && state.placeholder.nextSibling !== firstVisible) {
-        state.container.insertBefore(state.placeholder, firstVisible);
-      }
-
-      const hidden = state.hiddenTurns.length;
-      const rendered = state.visibleTurns.length;
-      const total = hidden + rendered;
-      const reduction = rendered > 0 ? (total / rendered).toFixed(1) : '1.0';
-      const t = getTranslator();
+    if (!state.placeholder) {
+      state.placeholder = document.createElement('div');
+      state.placeholder.setAttribute(PLACEHOLDER_ATTR, '1');
+      state.placeholder.className = 'chat-slimmer-placeholder';
       state.placeholder.innerHTML = `
         <div class="chat-slimmer-placeholder__text"></div>
         <div class="chat-slimmer-placeholder__actions">
-          <button type="button" data-action="older">${t.t('action_load_older_count', { count: state.settings.stepTurns })}</button>
-          <button type="button" data-action="latest">${t.t('action_show_latest')}</button>
-          <button type="button" data-action="all">${t.t('action_show_all')}</button>
+          <button type="button" data-action="older">이전 더 보기</button>
+          <button type="button" data-action="latest">최신만</button>
+          <button type="button" data-action="all">전체 보기</button>
         </div>
       `;
-      state.placeholder.querySelector('.chat-slimmer-placeholder__text').textContent = t.t('placeholder_text', {
-        hidden,
-        reduction,
-      });
-    });
+      state.placeholder.addEventListener('click', onPlaceholderClick);
+    }
+
+    const firstVisible = state.visibleTurns[0] || null;
+    if (state.placeholder.parentElement !== state.container) {
+      state.container.insertBefore(state.placeholder, firstVisible);
+    } else if (firstVisible && state.placeholder.nextSibling !== firstVisible) {
+      state.container.insertBefore(state.placeholder, firstVisible);
+    }
+
+    const textEl = state.placeholder.querySelector('.chat-slimmer-placeholder__text');
+    const hidden = state.hiddenTurns.length;
+    const rendered = state.visibleTurns.length;
+    const total = hidden + rendered;
+    const reduction = rendered > 0 ? (total / rendered).toFixed(1) : '1.0';
+    textEl.textContent = `오래된 ${hidden}개 턴을 숨겨 DOM을 약 ${reduction}x 가볍게 유지 중`;
   }
 
   function removePlaceholder() {
-    withObserverPaused(() => {
-      if (state.placeholder?.isConnected) {
-        state.placeholder.remove();
-      }
-    });
+    if (state.placeholder?.isConnected) {
+      state.placeholder.remove();
+    }
   }
 
   function onPlaceholderClick(event) {
@@ -504,17 +447,15 @@
       return;
     }
 
-    withObserverPaused(() => {
-      const snapshot = captureScroll();
-      const insertionPoint = state.visibleTurns[0] || state.placeholder || null;
-      for (const node of state.hiddenTurns) {
-        state.container.insertBefore(node, insertionPoint);
-      }
-      state.visibleTurns = state.hiddenTurns.concat(state.visibleTurns);
-      state.hiddenTurns = [];
-      removePlaceholder();
-      restoreScroll(snapshot);
-    });
+    const snapshot = captureScroll();
+    const insertionPoint = state.visibleTurns[0] || state.placeholder || null;
+    for (const node of state.hiddenTurns) {
+      state.container.insertBefore(node, insertionPoint);
+    }
+    state.visibleTurns = state.hiddenTurns.concat(state.visibleTurns);
+    state.hiddenTurns = [];
+    removePlaceholder();
+    restoreScroll(snapshot);
   }
 
   function resetConversationState(restoreHidden) {
@@ -569,7 +510,6 @@
       return;
     }
 
-    const t = getTranslator();
     state.overlayHost = document.createElement('div');
     state.overlayHost.setAttribute(ROOT_ATTR, '1');
     state.overlayHost.style.position = 'fixed';
@@ -617,10 +557,7 @@
           max-width: min(220px, calc(100vw - 32px));
           padding: 10px 12px;
           border-radius: 999px;
-          cursor: grab;
-          user-select: none;
-          -webkit-user-select: none;
-          touch-action: none;
+          cursor: pointer;
         }
         .dock:hover,
         .actions button:hover,
@@ -673,14 +610,6 @@
         .header {
           align-items: flex-start;
           margin-bottom: 12px;
-          cursor: grab;
-          user-select: none;
-          -webkit-user-select: none;
-          touch-action: none;
-        }
-        :host([data-dragging="1"]) .dock,
-        :host([data-dragging="1"]) .header {
-          cursor: grabbing;
         }
         .title {
           font-size: 14px;
@@ -723,15 +652,6 @@
           line-height: 1.45;
           color: #cbd5e1;
           max-width: 190px;
-        }
-        .panel-select {
-          width: 100%;
-          appearance: none;
-          border-radius: 10px;
-          border: 1px solid rgba(148, 163, 184, 0.22);
-          background: rgba(30, 41, 59, 0.92);
-          color: inherit;
-          padding: 8px 10px;
         }
         .tune-value {
           font-size: 20px;
@@ -784,63 +704,50 @@
         <button class="dock" id="toggle" type="button" aria-expanded="false">
           <span class="dock-copy">
             <span class="dock-title">Slimmer</span>
-            <span class="dock-subtitle" id="chipSummary">${t.t('dock_summary_detecting')}</span>
+            <span class="dock-subtitle" id="chipSummary">대화 감지 중</span>
           </span>
-          <span class="dock-badge" id="chipTurns">${formatTurnCount(state.settings.keepTurns)}</span>
+          <span class="dock-badge" id="chipTurns">40턴</span>
         </button>
         <div class="panel" id="panel" hidden>
-          <div class="row header" id="header">
+          <div class="row header">
             <div>
               <div class="title">Long Chat Slimmer</div>
-              <div class="subtitle" id="panelSummary">${t.t('overlay_panel_note')}</div>
+              <div class="subtitle" id="panelSummary">필요할 때만 펼쳐서 상태와 액션을 확인할 수 있습니다.</div>
             </div>
-            <button class="icon-button" id="close" type="button" aria-label="${t.t('overlay_close_aria')}">×</button>
+            <button class="icon-button" id="close" type="button" aria-label="패널 닫기">×</button>
           </div>
           <div class="tune-card">
             <div class="row tune-head">
               <div>
-                <div class="tune-label" id="languageLabel">${t.t('setting_language')}</div>
-                <div class="tune-note" id="languageNote">${t.t('setting_language_hint')}</div>
+                <div class="tune-label">유지 턴 수</div>
+                <div class="tune-note">이 브라우저 설정으로 바로 반영됩니다.</div>
               </div>
+              <div class="tune-value" id="keepValue">40턴</div>
             </div>
-            <select class="panel-select" id="languageSelect" aria-label="${t.t('setting_language')}">
-              <option value="auto">${t.t('language_auto')}</option>
-              <option value="ko">${t.t('language_ko')}</option>
-              <option value="en">${t.t('language_en')}</option>
-            </select>
-          </div>
-          <div class="tune-card">
-            <div class="row tune-head">
-              <div>
-                <div class="tune-label" id="keepLabel">${t.t('overlay_tune_label')}</div>
-                <div class="tune-note" id="keepNote">${t.t('overlay_tune_note')}</div>
-              </div>
-              <div class="tune-value" id="keepValue">${formatTurnCount(state.settings.keepTurns)}</div>
-            </div>
-            <input class="range" id="keepRange" type="range" min="${KEEP_TURNS_MIN}" max="${KEEP_TURNS_MAX}" step="5" aria-label="${t.t('overlay_tune_label')}" />
+            <input class="range" id="keepRange" type="range" min="${KEEP_TURNS_MIN}" max="${KEEP_TURNS_MAX}" step="5" />
           </div>
           <div class="grid">
             <div class="stat">
-              <div class="stat-label" id="totalLabel">${t.t('stat_total_turns')}</div>
+              <div class="stat-label">전체 턴</div>
               <div class="stat-value" id="total">-</div>
             </div>
             <div class="stat">
-              <div class="stat-label" id="renderedLabel">${t.t('stat_rendered_turns')}</div>
+              <div class="stat-label">표시 중</div>
               <div class="stat-value" id="rendered">-</div>
             </div>
             <div class="stat">
-              <div class="stat-label" id="hiddenLabel">${t.t('stat_hidden_turns')}</div>
+              <div class="stat-label">숨김</div>
               <div class="stat-value" id="hidden">-</div>
             </div>
             <div class="stat">
-              <div class="stat-label" id="reductionLabel">${t.t('stat_reduction')}</div>
+              <div class="stat-label">DOM 경량화</div>
               <div class="stat-value" id="reduction">-</div>
             </div>
           </div>
           <div class="actions">
-            <button id="older" type="button">${t.t('action_load_older_count', { count: state.settings.stepTurns })}</button>
-            <button id="latest" type="button">${t.t('action_show_latest')}</button>
-            <button id="all" type="button">${t.t('action_show_all')}</button>
+            <button id="older" type="button">이전 20개</button>
+            <button id="latest" type="button">최신만</button>
+            <button id="all" type="button">전체 보기</button>
           </div>
         </div>
       </div>
@@ -851,18 +758,8 @@
       chipSummary: state.overlayShadow.getElementById('chipSummary'),
       chipTurns: state.overlayShadow.getElementById('chipTurns'),
       panel: state.overlayShadow.getElementById('panel'),
-      header: state.overlayShadow.getElementById('header'),
       panelSummary: state.overlayShadow.getElementById('panelSummary'),
       close: state.overlayShadow.getElementById('close'),
-      languageLabel: state.overlayShadow.getElementById('languageLabel'),
-      languageNote: state.overlayShadow.getElementById('languageNote'),
-      languageSelect: state.overlayShadow.getElementById('languageSelect'),
-      keepLabel: state.overlayShadow.getElementById('keepLabel'),
-      keepNote: state.overlayShadow.getElementById('keepNote'),
-      totalLabel: state.overlayShadow.getElementById('totalLabel'),
-      renderedLabel: state.overlayShadow.getElementById('renderedLabel'),
-      hiddenLabel: state.overlayShadow.getElementById('hiddenLabel'),
-      reductionLabel: state.overlayShadow.getElementById('reductionLabel'),
       total: state.overlayShadow.getElementById('total'),
       rendered: state.overlayShadow.getElementById('rendered'),
       hidden: state.overlayShadow.getElementById('hidden'),
@@ -874,31 +771,11 @@
       all: state.overlayShadow.getElementById('all'),
     };
 
-    state.overlayEls.toggle.addEventListener('pointerdown', startOverlayDrag);
-    state.overlayEls.header.addEventListener('pointerdown', startOverlayDrag);
-    state.overlayEls.toggle.addEventListener('click', (event) => {
-      if (state.suppressNextToggleClick) {
-        state.suppressNextToggleClick = false;
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
+    state.overlayEls.toggle.addEventListener('click', () => {
       toggleOverlayOpen();
     });
     state.overlayEls.close.addEventListener('click', () => {
       toggleOverlayOpen(false);
-    });
-    state.overlayEls.languageSelect.addEventListener('change', () => {
-      state.settings = normalizeSettings({
-        ...state.settings,
-        language: state.overlayEls.languageSelect.value,
-      });
-      ensurePlaceholder();
-      updateStatsFromState(Boolean(state.container));
-      scheduleSettingsPersist();
-      window.setTimeout(() => {
-        state.overlayEls.languageSelect.blur();
-      }, 0);
     });
     state.overlayEls.keepRange.addEventListener('input', () => {
       state.settings = normalizeSettings({
@@ -913,157 +790,7 @@
     state.overlayEls.all.addEventListener('click', showAllTurns);
 
     (document.body || document.documentElement).appendChild(state.overlayHost);
-    applyOverlayPosition(false);
     updateOverlayVisibility();
-  }
-
-  function startOverlayDrag(event) {
-    if (!state.overlayHost || event.button !== 0) {
-      return;
-    }
-
-    if (event.currentTarget === state.overlayEls.header && event.target.closest('button, input, select, textarea, a')) {
-      return;
-    }
-
-    const rect = state.overlayHost.getBoundingClientRect();
-    state.overlayDrag = {
-      pointerId: event.pointerId,
-      startPointerX: event.clientX,
-      startPointerY: event.clientY,
-      startLeft: rect.left,
-      startTop: rect.top,
-      dragging: false,
-      fromToggle: event.currentTarget === state.overlayEls.toggle,
-      sourceEl: event.currentTarget,
-    };
-
-    if (typeof event.currentTarget.setPointerCapture === 'function') {
-      try {
-        event.currentTarget.setPointerCapture(event.pointerId);
-      } catch (_error) {
-        // Pointer capture can fail in some browser edge cases; dragging still works with window listeners.
-      }
-    }
-  }
-
-  function handleOverlayPointerMove(event) {
-    if (!state.overlayDrag || event.pointerId !== state.overlayDrag.pointerId) {
-      return;
-    }
-
-    const deltaX = event.clientX - state.overlayDrag.startPointerX;
-    const deltaY = event.clientY - state.overlayDrag.startPointerY;
-    if (!state.overlayDrag.dragging && Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD) {
-      return;
-    }
-
-    state.overlayDrag.dragging = true;
-    state.overlayHost.setAttribute('data-dragging', '1');
-    applyOverlayPosition(false, {
-      left: state.overlayDrag.startLeft + deltaX,
-      top: state.overlayDrag.startTop + deltaY,
-    });
-    event.preventDefault();
-  }
-
-  function finishOverlayDrag(event) {
-    if (!state.overlayDrag || event.pointerId !== state.overlayDrag.pointerId) {
-      return;
-    }
-
-    const deltaX = event.clientX - state.overlayDrag.startPointerX;
-    const deltaY = event.clientY - state.overlayDrag.startPointerY;
-
-    if (state.overlayDrag.dragging) {
-      state.settings = normalizeSettings({
-        ...state.settings,
-        overlayPosition: clampOverlayPosition({
-          left: state.overlayDrag.startLeft + deltaX,
-          top: state.overlayDrag.startTop + deltaY,
-        }),
-      });
-      applyOverlayPosition(false);
-      scheduleSettingsPersist();
-      if (state.overlayDrag.fromToggle) {
-        state.suppressNextToggleClick = true;
-      }
-    }
-
-    if (state.overlayDrag.sourceEl && typeof state.overlayDrag.sourceEl.releasePointerCapture === 'function') {
-      try {
-        state.overlayDrag.sourceEl.releasePointerCapture(state.overlayDrag.pointerId);
-      } catch (_error) {
-        // Safe to ignore when the pointer is already released.
-      }
-    }
-
-    state.overlayHost.removeAttribute('data-dragging');
-    state.overlayDrag = null;
-  }
-
-  function applyOverlayPosition(shouldPersist, draftPosition = state.settings.overlayPosition) {
-    if (!state.overlayHost) {
-      return;
-    }
-
-    const normalized = normalizeOverlayPosition(draftPosition);
-    if (!normalized) {
-      state.overlayHost.style.left = '';
-      state.overlayHost.style.top = '';
-      state.overlayHost.style.right = '16px';
-      state.overlayHost.style.bottom = 'max(96px, calc(env(safe-area-inset-bottom) + 20px))';
-      return;
-    }
-
-    const clamped = clampOverlayPosition(normalized);
-    state.overlayHost.style.left = `${clamped.left}px`;
-    state.overlayHost.style.top = `${clamped.top}px`;
-    state.overlayHost.style.right = 'auto';
-    state.overlayHost.style.bottom = 'auto';
-
-    if (shouldPersist) {
-      state.settings = normalizeSettings({
-        ...state.settings,
-        overlayPosition: clamped,
-      });
-      scheduleSettingsPersist();
-    }
-  }
-
-  function clampOverlayPosition(position) {
-    const normalized = normalizeOverlayPosition(position);
-    if (!normalized) {
-      return null;
-    }
-
-    const rect = state.overlayHost?.getBoundingClientRect();
-    const width = rect?.width || (state.overlayOpen ? 300 : 220);
-    const height = rect?.height || (state.overlayOpen ? 360 : 52);
-    const maxLeft = Math.max(OVERLAY_MARGIN, window.innerWidth - width - OVERLAY_MARGIN);
-    const maxTop = Math.max(OVERLAY_MARGIN, window.innerHeight - height - OVERLAY_MARGIN);
-
-    return {
-      left: Math.round(Math.min(maxLeft, Math.max(OVERLAY_MARGIN, normalized.left))),
-      top: Math.round(Math.min(maxTop, Math.max(OVERLAY_MARGIN, normalized.top))),
-    };
-  }
-
-  function normalizeOverlayPosition(value) {
-    if (!value || typeof value !== 'object') {
-      return null;
-    }
-
-    const left = Number(value.left);
-    const top = Number(value.top);
-    if (!Number.isFinite(left) || !Number.isFinite(top)) {
-      return null;
-    }
-
-    return {
-      left: Math.round(left),
-      top: Math.round(top),
-    };
   }
 
   function toggleOverlayOpen(forceOpen) {
@@ -1083,7 +810,6 @@
     if (state.overlayEls.panel) {
       state.overlayEls.panel.hidden = !state.overlayOpen;
     }
-    applyOverlayPosition(false);
   }
 
   function updateStatsFromState(containerFound) {
@@ -1096,48 +822,40 @@
   }
 
   function updateStats({ containerFound, totalTurns, renderedTurns, hiddenTurns }) {
-    const t = getTranslator();
     const reduction = renderedTurns > 0 ? `${(totalTurns / renderedTurns).toFixed(1)}x` : '-';
-    const mode = t.t(`mode_${getModeKey(containerFound)}`);
+    const mode = !state.settings.enabled
+      ? '비활성'
+      : !containerFound
+      ? '감지 중'
+      : state.showAll
+      ? '전체'
+      : state.expandBy > 0
+      ? '확장'
+      : '자동';
 
-    withObserverPaused(() => {
-      state.overlayEls.close.setAttribute('aria-label', t.t('overlay_close_aria'));
-      state.overlayEls.languageLabel.textContent = t.t('setting_language');
-      state.overlayEls.languageNote.textContent = t.t('setting_language_hint');
-      state.overlayEls.languageSelect.setAttribute('aria-label', t.t('setting_language'));
-      state.overlayEls.languageSelect.value = state.settings.language;
-      state.overlayEls.languageSelect.options[0].textContent = t.t('language_auto');
-      state.overlayEls.languageSelect.options[1].textContent = t.t('language_ko');
-      state.overlayEls.languageSelect.options[2].textContent = t.t('language_en');
-      state.overlayEls.keepLabel.textContent = t.t('overlay_tune_label');
-      state.overlayEls.keepNote.textContent = t.t('overlay_tune_note');
-      state.overlayEls.totalLabel.textContent = t.t('stat_total_turns');
-      state.overlayEls.renderedLabel.textContent = t.t('stat_rendered_turns');
-      state.overlayEls.hiddenLabel.textContent = t.t('stat_hidden_turns');
-      state.overlayEls.reductionLabel.textContent = t.t('stat_reduction');
-      state.overlayEls.total.textContent = String(totalTurns ?? '-');
-      state.overlayEls.rendered.textContent = String(renderedTurns ?? '-');
-      state.overlayEls.hidden.textContent = String(hiddenTurns ?? '-');
-      state.overlayEls.reduction.textContent = reduction;
-      state.overlayEls.keepRange.value = String(state.settings.keepTurns);
-      state.overlayEls.keepRange.setAttribute('aria-label', t.t('overlay_tune_label'));
-      state.overlayEls.keepValue.textContent = formatTurnCount(state.settings.keepTurns);
-      state.overlayEls.chipTurns.textContent = formatTurnCount(state.settings.keepTurns);
-      state.overlayEls.chipSummary.textContent = !containerFound
-        ? t.t('dock_summary_detecting')
-        : state.showAll
-        ? t.t('dock_summary_show_all')
-        : hiddenTurns > 0
-        ? t.t('dock_summary_hidden', { mode, hidden: hiddenTurns })
-        : t.t('dock_summary_latest', { mode });
-      state.overlayEls.panelSummary.textContent = t.t('overlay_panel_note');
-      state.overlayEls.older.textContent = t.t('action_load_older_count', { count: state.settings.stepTurns });
-      state.overlayEls.latest.textContent = t.t('action_show_latest');
-      state.overlayEls.all.textContent = t.t('action_show_all');
-      state.overlayEls.older.disabled = !containerFound || hiddenTurns === 0;
-      state.overlayEls.latest.disabled = !containerFound || (!state.showAll && state.expandBy === 0);
-      state.overlayEls.all.disabled = !containerFound || state.showAll;
-    });
+    state.overlayEls.total.textContent = String(totalTurns ?? '-');
+    state.overlayEls.rendered.textContent = String(renderedTurns ?? '-');
+    state.overlayEls.hidden.textContent = String(hiddenTurns ?? '-');
+    state.overlayEls.reduction.textContent = reduction;
+    state.overlayEls.keepRange.value = String(state.settings.keepTurns);
+    state.overlayEls.keepValue.textContent = `${state.settings.keepTurns}턴`;
+    state.overlayEls.chipTurns.textContent = `${state.settings.keepTurns}턴`;
+    state.overlayEls.chipSummary.textContent = !containerFound
+      ? '대화 감지 중'
+      : state.showAll
+      ? '전체 표시 중'
+      : hiddenTurns > 0
+      ? `${mode} · 숨김 ${hiddenTurns}`
+      : `${mode} · 최신 유지`;
+    state.overlayEls.panelSummary.textContent = !containerFound
+      ? '이 페이지의 대화 턴을 찾는 중입니다.'
+      : state.showAll
+      ? '현재는 모든 턴을 페이지에 그대로 표시하고 있습니다.'
+      : `최근 ${renderedTurns}개 턴만 DOM에 남겨 스크롤과 입력 부담을 줄입니다.`;
+    state.overlayEls.older.textContent = `이전 ${state.settings.stepTurns}개`;
+    state.overlayEls.older.disabled = !containerFound || hiddenTurns === 0;
+    state.overlayEls.latest.disabled = !containerFound || (!state.showAll && state.expandBy === 0);
+    state.overlayEls.all.disabled = !containerFound || state.showAll;
     updateOverlayVisibility();
   }
 
@@ -1182,7 +900,6 @@
       keepTurns: state.settings.keepTurns,
       stepTurns: state.settings.stepTurns,
       showOverlay: state.settings.showOverlay,
-      language: state.settings.language,
       showAll: state.showAll,
       expanded: state.expandBy > 0,
       containerFound: Boolean(state.container),
@@ -1229,33 +946,7 @@
       keepTurns: clampNumber(value.keepTurns, KEEP_TURNS_MIN, KEEP_TURNS_MAX, DEFAULT_SETTINGS.keepTurns),
       stepTurns: clampNumber(value.stepTurns, STEP_TURNS_MIN, STEP_TURNS_MAX, DEFAULT_SETTINGS.stepTurns),
       showOverlay: typeof value.showOverlay === 'boolean' ? value.showOverlay : DEFAULT_SETTINGS.showOverlay,
-      language: normalizeLanguage(value.language),
-      overlayPosition: normalizeOverlayPosition(value.overlayPosition),
     };
-  }
-
-  function getTranslator() {
-    return createTranslator(state.settings.language);
-  }
-
-  function formatTurnCount(count) {
-    return getTranslator().t('turn_count', { count });
-  }
-
-  function getModeKey(containerFound) {
-    if (!state.settings.enabled) {
-      return 'disabled';
-    }
-    if (!containerFound) {
-      return 'detecting';
-    }
-    if (state.showAll) {
-      return 'show_all';
-    }
-    if (state.expandBy > 0) {
-      return 'expanded';
-    }
-    return 'auto';
   }
 
   function clampNumber(value, min, max, fallback) {

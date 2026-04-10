@@ -67,10 +67,6 @@ body {
   gap: 10px;
 }
 
-.select-field {
-  gap: 8px;
-}
-
 .field-head,
 .field-foot {
   display: flex;
@@ -102,7 +98,6 @@ body {
 }
 
 input[type="number"],
-select,
 button {
   border-radius: 10px;
   border: 1px solid rgba(148, 163, 184, 0.22);
@@ -122,11 +117,6 @@ input[type="range"] {
 
 input[type="number"] {
   width: 88px;
-  padding: 9px 10px;
-}
-
-select {
-  width: 100%;
   padding: 9px 10px;
 }
 

@@ -1,6 +1,6 @@
 # ChatGPT Long Chat Slimmer
 
-[![English](https://img.shields.io/badge/English-2563eb?style=for-the-badge)](./README.md)
+![English](https://img.shields.io/badge/English-2563eb?style=for-the-badge)
 [![한국어](https://img.shields.io/badge/%ED%95%9C%EA%B5%AD%EC%96%B4-334155?style=for-the-badge)](./README.ko.md)
 
 A Chrome extension that reduces rendering load in long ChatGPT web conversations by unmounting older turns from the DOM.
@@ -11,8 +11,6 @@ A Chrome extension that reduces rendering load in long ChatGPT web conversations
 - It keeps only the latest N turns mounted in the DOM and detaches older turns from the page.
 - You can use `Load Older`, `Latest Only`, and `Show All` from the top placeholder or the collapsible bottom-right dock.
 - The number of kept turns can be adjusted live from both the popup and the page dock, and settings are stored locally per browser.
-- The popup now includes a language setting so the extension UI can be switched between English and Korean.
-- You can drag the dock or the expanded panel header to move the on-page UI, and its position is stored locally in that browser.
 - Everything runs entirely inside the browser and does not send data anywhere.
 
 ## Installation
@@ -26,10 +24,9 @@ A Chrome extension that reduces rendering load in long ChatGPT web conversations
 ## Usage
 
 - Open a conversation page on `chatgpt.com` or `chat.openai.com`.
-- Click the extension icon and adjust the number of turns to keep, the `Load Older` batch size, and the UI language in real time.
+- Click the extension icon and adjust the number of turns to keep and the `Load Older` batch size in real time.
 - The default behavior keeps the most recent 40 turns mounted.
 - If you want to revisit older turns, use `Load Older` from the top placeholder, the expanded dock panel, or the popup.
-- Drag the bottom-right dock or the panel header if you want to move the floating UI away from the input box or other page controls.
 - Because settings are stored locally, you can use different limits in Chrome, Edge, Arc, and other Chromium-based browsers.
 
 ## Notes

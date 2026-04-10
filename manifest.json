@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ChatGPT Long Chat Slimmer",
-  "version": "0.3.0",
-  "description": "Keeps only recent ChatGPT turns mounted in the page, with browser-local live tuning and bilingual UI for long web chats.",
+  "version": "0.2.0",
+  "description": "Keeps only recent ChatGPT turns mounted in the page, with browser-local live tuning for long web chats.",
   "permissions": ["storage", "tabs"],
   "icons": {
     "16": "icons/icon16.png",
@@ -24,7 +24,7 @@
         "https://chatgpt.com/*",
         "https://chat.openai.com/*"
       ],
-      "js": ["i18n.js", "content-script.js"],
+      "js": ["content-script.js"],
       "run_at": "document_idle"
     }
   ]
