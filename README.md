@@ -1,36 +1,100 @@
-# ChatGPT Long Chat Slimmer
+<div align="center">
+
+# 🪶 ChatGPT Long Chat Slimmer
+
+**Keep long ChatGPT conversations fast by unmounting older turns from the DOM.**
 
 [![English](https://img.shields.io/badge/English-2563eb?style=for-the-badge)](./README.md)
 [![한국어](https://img.shields.io/badge/%ED%95%9C%EA%B5%AD%EC%96%B4-334155?style=for-the-badge)](./README.ko.md)
 
-A Chrome extension that reduces rendering load in long ChatGPT web conversations by unmounting older turns from the DOM.
+[![Manifest V3](https://img.shields.io/badge/Manifest-V3-34a853?style=flat-square)](./manifest.json)
+[![Version](https://img.shields.io/badge/version-0.2.0-blue?style=flat-square)](./manifest.json)
+[![Chromium](https://img.shields.io/badge/Chrome%20%7C%20Edge%20%7C%20Arc-Chromium-orange?style=flat-square)](#installation)
+[![Privacy](https://img.shields.io/badge/data%20sent-none-success?style=flat-square)](#privacy--permissions)
 
-## How It Works
+</div>
 
-- It finds the conversation turn container on the ChatGPT web page.
-- It keeps only the latest N turns mounted in the DOM and detaches older turns from the page.
-- You can use `Load Older`, `Latest Only`, and `Show All` from the top placeholder or the collapsible bottom-right dock.
-- The number of kept turns can be adjusted live from both the popup and the page dock, and settings are stored locally per browser.
-- Everything runs entirely inside the browser and does not send data anywhere.
+---
 
-## Installation
+Long ChatGPT threads get slow because **every past turn stays in the page**, and the browser keeps re-rendering all of them. This Chrome extension keeps only the most recent **N** turns mounted and detaches the rest from the DOM, so scrolling, typing, and rendering stay snappy — without touching your messages or the server.
 
-1. Download or extract this folder.
-2. Open `chrome://extensions` in Chrome.
+> 💡 This targets **browser-side lag** (rendering, scrolling, input), not server response speed. Hidden turns are simply detached from the page and can be restored at any time.
+
+## ✨ Features
+
+| | Feature |
+|---|---|
+| ⚡ | **Faster long chats** — keeps only the latest *N* turns in the DOM, detaches older ones |
+| 🎚️ | **Live tuning** — change the kept-turn count (2–200) and reflect it instantly on the open tab |
+| 👀 | **Restore anytime** — `Load Older`, `Latest Only`, and `Show All` from the popup or page dock |
+| 📊 | **Status panel** — see total / shown / hidden turns and the DOM reduction percentage |
+| 🌐 | **Bilingual UI** — Korean / English with an `Auto (browser)` option |
+| 🔒 | **Local & private** — settings stored per browser, nothing is ever sent anywhere |
+
+## ⚙️ How It Works
+
+1. Finds the conversation turn container on the ChatGPT web page.
+2. Keeps only the latest **N** turns mounted and detaches older turns from the page.
+3. Surfaces `Load Older`, `Latest Only`, and `Show All` controls in a top placeholder and a collapsible bottom-right dock.
+4. Lets you adjust the kept-turn count live from both the popup and the page dock — settings are stored locally per browser.
+5. Runs entirely inside the browser and never sends data anywhere.
+
+## 📦 Installation
+
+1. Download or clone this repository.
+2. Open `chrome://extensions` in Chrome (or any Chromium browser).
 3. Turn on **Developer mode** in the top-right corner.
 4. Click **Load unpacked**.
-5. Select this folder: `chatgpt-long-chat-slimmer`.
+5. Select this folder.
 
-## Usage
+## 🚀 Usage
 
-- Open a conversation page on `chatgpt.com` or `chat.openai.com`.
-- Click the extension icon and adjust the number of turns to keep and the `Load Older` batch size in real time.
-- The default behavior keeps the most recent 40 turns mounted.
-- If you want to revisit older turns, use `Load Older` from the top placeholder, the expanded dock panel, or the popup.
-- Because settings are stored locally, you can use different limits in Chrome, Edge, Arc, and other Chromium-based browsers.
+- Open a conversation on `chatgpt.com` or `chat.openai.com`.
+- Click the extension icon to adjust the kept-turn count and the `Load Older` batch size in real time.
+- By default, the most recent **40 turns** stay mounted.
+- To revisit older messages, use `Load Older` from the top placeholder, the expanded dock panel, or the popup.
+- Because settings are stored locally, you can keep different limits in Chrome, Edge, Arc, and other Chromium-based browsers.
 
-## Notes
+## 🔧 Settings
 
-- ChatGPT's web DOM structure is private implementation detail and may change. If it changes significantly, the selectors may need updates.
-- This version targets **browser rendering, scrolling, and input lag** reduction rather than server response speed.
-- The current implementation uses a safer DOM-based slimming approach and does not intercept network responses.
+| Setting | Default | Range | Description |
+|---|---|---|---|
+| **Enabled** | `on` | — | Master toggle for slimming |
+| **Keep turns** | `40` | 2–200 | How many recent turns stay mounted |
+| **Load Older batch** | `20` | 2–200 | How many turns are revealed per `Load Older` click |
+| **Language** | `Auto` | Auto / 한국어 / English | UI language for the popup and in-page controls |
+| **Status panel** | `on` | — | Show the bottom-right dock with live stats |
+
+### Status panel metrics
+
+`Total turns` · `Shown` · `Hidden` · `DOM reduction %` — refreshed live for the active tab.
+
+## 🔒 Privacy & Permissions
+
+- Everything runs locally in your browser; **no data is collected or transmitted**.
+- The extension does not intercept network responses — it only detaches/attaches DOM nodes.
+- Requested permissions:
+  - `storage` — save your settings locally per browser.
+  - `tabs` — apply changes and read status for the active ChatGPT tab.
+
+## 📝 Notes & Limitations
+
+- ChatGPT's web DOM structure is a private implementation detail and may change. If it changes significantly, the selectors may need updating.
+- This version targets **browser rendering, scrolling, and input lag** reduction — not server response speed.
+- The current implementation uses a safer DOM-based slimming approach and does **not** intercept network responses.
+
+## 🗂️ Project Structure
+
+```
+gptweb-slimmer/
+├── manifest.json        # MV3 manifest (permissions, content script, action)
+├── content-script.js    # Core slimming logic, in-page dock & overlay
+├── popup.html / .js / .css  # Toolbar popup UI and controls
+└── icons/               # Extension icons (16–128px)
+```
+
+---
+
+<div align="center">
+<sub>Runs entirely in your browser · No tracking · No data leaves your machine</sub>
+</div>
