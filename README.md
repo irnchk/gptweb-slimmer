@@ -9,6 +9,7 @@
 
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-34a853?style=flat-square)](./manifest.json)
 [![Version](https://img.shields.io/badge/version-0.2.0-blue?style=flat-square)](./manifest.json)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](./LICENSE)
 [![Chromium](https://img.shields.io/badge/Chrome%20%7C%20Edge%20%7C%20Arc-Chromium-orange?style=flat-square)](#installation)
 [![Privacy](https://img.shields.io/badge/data%20sent-none-success?style=flat-square)](#privacy--permissions)
 
@@ -19,6 +20,19 @@
 Long ChatGPT threads get slow because **every past turn stays in the page**, and the browser keeps re-rendering all of them. This Chrome extension keeps only the most recent **N** turns mounted and detaches the rest from the DOM, so scrolling, typing, and rendering stay snappy — without touching your messages or the server.
 
 > 💡 This targets **browser-side lag** (rendering, scrolling, input), not server response speed. Hidden turns are simply detached from the page and can be restored at any time.
+
+## Why This Exists
+
+Long AI work sessions often become a browser performance problem before they become a model problem. Developers, students, researchers, and power users can keep a single ChatGPT thread open for days or weeks; eventually the page contains hundreds of rich DOM nodes, code blocks, markdown regions, and controls. That can make scrolling, typing, and switching tabs feel sluggish even on capable machines.
+
+ChatGPT Long Chat Slimmer is a small, local-first tool for that bottleneck. It preserves the conversation in the browser session, avoids network interception, and gives users explicit controls to reveal older turns when they need context again.
+
+## Who It Helps
+
+- Developers using ChatGPT for long debugging, planning, or code review sessions.
+- Researchers and students collecting long notes in one conversation.
+- Heavy ChatGPT users on Chromium browsers who notice input lag or scroll jank.
+- Privacy-conscious users who want a browser-only performance tool.
 
 ## ✨ Features
 
@@ -83,6 +97,25 @@ Long ChatGPT threads get slow because **every past turn stays in the page**, and
 - This version targets **browser rendering, scrolling, and input lag** reduction — not server response speed.
 - The current implementation uses a safer DOM-based slimming approach and does **not** intercept network responses.
 
+## 🛠️ Maintenance
+
+This project is maintained as a lightweight open-source utility. The most important maintenance work is tracking ChatGPT DOM changes, keeping the extension privacy-preserving, and improving the UI without adding background services.
+
+Near-term priorities:
+
+- Keep turn detection resilient as ChatGPT's markup changes.
+- Add small reproducible fixtures for DOM-shape regressions.
+- Improve accessibility and keyboard navigation for the popup and dock.
+- Collect real-world performance reports from long conversations.
+
+## 🤝 Contributing
+
+Issues and pull requests are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for local development notes, privacy expectations, and suggested first contributions.
+
+## 📄 License
+
+MIT. See [LICENSE](./LICENSE).
+
 ## 🗂️ Project Structure
 
 ```
@@ -90,6 +123,8 @@ gptweb-slimmer/
 ├── manifest.json        # MV3 manifest (permissions, content script, action)
 ├── content-script.js    # Core slimming logic, in-page dock & overlay
 ├── popup.html / .js / .css  # Toolbar popup UI and controls
+├── CONTRIBUTING.md      # Contribution guide and privacy expectations
+├── LICENSE              # MIT license
 └── icons/               # Extension icons (16–128px)
 ```
 
